@@ -1,0 +1,144 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: medibot
+  labels:
+    app: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: medibot
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      containers:
+        - name: backend
+          image: medibot-backend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: medibot-config
+            - secretRef:
+                name: medibot-secrets
+          # Liveness: the process responds. Never point this at /ready — a
+          # Qdrant outage would restart perfectly healthy pods in a loop and
+          # make the incident worse.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 3
+          # Readiness: dependencies reachable and model loaded. A pod failing
+          # here leaves the Service without being killed.
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Loading the embedding model takes up to ~1 min on first start:
+          # without a startupProbe, liveness would kill the pod first.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1500Mi
+            limits:
+              memory: 3Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            # The only writable path is /tmp (emptyDir below):
+            # PYTHONDONTWRITEBYTECODE=1 and the HuggingFace cache is pre-seeded
+            # in the image in offline mode. If a pod fails to start on a cache
+            # write, set this back to false and open an issue.
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: uploads
+              mountPath: /tmp
+      volumes:
+        # Uploaded PDFs are written then deleted immediately after indexing: an
+        # ephemeral volume is enough and avoids leaving any medical document
+        # residue on disk.
+        - name: uploads
+          emptyDir:
+            medium: Memory
+            sizeLimit: 128Mi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend
+  namespace: medibot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backend
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend
+  namespace: medibot
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      # Every new pod reloads the embedding model: avoid flapping by scaling
+      # down only after 10 quiet minutes.
+      stabilizationWindowSeconds: 600
