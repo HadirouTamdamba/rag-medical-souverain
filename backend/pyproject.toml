@@ -1,0 +1,35 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q --strict-markers"
+filterwarnings = ["error::DeprecationWarning:medibot.*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["wheels", ".cache"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # bugbear
+    "UP",   # pyupgrade
+    "C4",   # comprehensions
+    "SIM",  # simplifications
+    "RUF",
+]
+ignore = [
+    "B008",    # Depends(...) as a default value: the FastAPI idiom
+    "RUF001",  # typographic quotes in prose
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests deliberately reach into internals (_build_context, _hits, ...).
+"tests/*" = ["SLF001", "E501", "RUF012"]
+# SYSTEM_PROMPT_TEMPLATE: line breaks are part of the demo-validated prompt;
+# rewrapping it to fit 110 columns would change its content.
+"rag_pipeline.py" = ["E501"]
