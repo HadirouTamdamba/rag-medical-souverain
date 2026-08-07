@@ -1,0 +1,208 @@
+# Reference topology, production-oriented.
+#
+#   docker compose up -d                       -> merges docker-compose.override.yml (development)
+#   docker compose -f docker-compose.yml up -d -> this file alone (production)
+#
+# In production only the frontend is published on the host: Qdrant, Ollama and
+# the API stay on an internal network, behind the organisation's TLS reverse
+# proxy.
+
+name: medibot
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.6
+    container_name: medibot_qdrant
+    <<: *restart
+    expose:
+      - "6333"
+    volumes:
+      - qdrant_data_v2:/qdrant/storage
+    networks:
+      - data
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: ${QDRANT_MEMORY_LIMIT:-2g}
+
+  ollama:
+    image: ollama/ollama:0.5.7
+    container_name: medibot_ollama
+    <<: *restart
+    expose:
+      - "11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-60m}
+    networks:
+      - data
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: ${OLLAMA_MEMORY_LIMIT:-12g}
+
+  # Pulls the model before the API accepts traffic. Without this step, the very
+  # first question triggered a multi-gigabyte pull and timed out.
+  ollama-init:
+    image: ollama/ollama:0.5.7
+    container_name: medibot_ollama_init
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ "${OLLAMA_HOST:-http://ollama:11434}" != "http://ollama:11434" ]; then
+          echo "OLLAMA_HOST points at an external instance: skipping pull."
+          exit 0
+        fi
+        echo "Downloading model ${OLLAMA_MODEL:-mistral}..."
+        ollama pull "${OLLAMA_MODEL:-mistral}"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      # Pre-downloaded wheels supplied outside the main context: they are
+      # neither transferred on every build nor baked into the image
+      # (see Dockerfile).
+      additional_contexts:
+        wheels: ./backend/wheels
+      args:
+        EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+    image: medibot-backend:${IMAGE_TAG:-local}
+    container_name: medibot_backend
+    <<: *restart
+    expose:
+      - "8000"
+    environment:
+      APP_NAME: ${APP_NAME:-MediBot RAG}
+      ENVIRONMENT: ${ENVIRONMENT:-local}
+      API_KEY: ${API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_JSON: ${LOG_JSON:-true}
+      API_WORKERS: ${API_WORKERS:-1}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-medical_docs}
+
+      # Defaults to the containerised Ollama; point at
+      # http://host.docker.internal:11435 to use a native instance
+      # (Metal GPU on macOS, far faster).
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-mistral}
+      OLLAMA_TIMEOUT_S: ${OLLAMA_TIMEOUT_S:-120}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-60m}
+      LLM_MAX_CONCURRENCY: ${LLM_MAX_CONCURRENCY:-2}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.0}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-1024}
+      LLM_NUM_CTX: ${LLM_NUM_CTX:-4096}
+
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      EMBEDDING_THREADS: ${EMBEDDING_THREADS:-2}
+      RAG_TOP_K: ${RAG_TOP_K:-5}
+      MIN_RELEVANCE_SCORE: ${MIN_RELEVANCE_SCORE:-0.35}
+      MAX_CONTEXT_CHARS: ${MAX_CONTEXT_CHARS:-12000}
+      MAX_HISTORY_MESSAGES: ${MAX_HISTORY_MESSAGES:-6}
+      CHUNK_SIZE: ${CHUNK_SIZE:-1000}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-150}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
+
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-30}
+      RATE_LIMIT_WINDOW_S: ${RATE_LIMIT_WINDOW_S:-60}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+
+      DEMO_DOCS_DIR: /demo_docs
+    depends_on:
+      qdrant:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./demo_docs:/demo_docs:ro
+    networks:
+      - data
+      - web
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          memory: ${BACKEND_MEMORY_LIMIT:-4g}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
+    image: medibot-frontend:${IMAGE_TAG:-local}
+    container_name: medibot_frontend
+    <<: *restart
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      # Read at runtime by the server-side relay: the API key never leaves the
+      # container and never appears in the browser bundle.
+      BACKEND_URL: http://backend:8000
+      BACKEND_API_KEY: ${API_KEY:-}
+      NODE_ENV: production
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: ${FRONTEND_MEMORY_LIMIT:-1g}
+
+networks:
+  # Qdrant and Ollama live here with no published port: only the backend reaches
+  # them. The network is not `internal` because ollama-init must download the
+  # model; on an air-gapped site, pre-seed the ollama_data volume and switch to
+  # internal.
+  data:
+  # Frontend <-> backend only.
+  web:
+
+volumes:
+  qdrant_data_v2:
+  ollama_data:
