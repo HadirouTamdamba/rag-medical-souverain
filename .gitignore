@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.eslintcache
+*.tsbuildinfo
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+
+# Application data
+uploads/
+backend/.cache/
+
+# Pre-downloaded wheels for offline Docker builds (see backend/Dockerfile)
+backend/wheels/*.whl
+
+# Official HAS/SFMU documents: not redistributed. Their provenance and download
+# URLs live in demo_docs_officiels/SOURCES.md, and scripts/fetch_demo_docs.sh
+# retrieves them from the publishers.
+demo_docs_officiels/*.pdf
+
+# Working notes outside the product scope
+strategie_ia_sante_part3.md
+
+# OS and editor artefacts
+.DS_Store
+.Rhistory
+*.log
+.idea/
+.vscode/
