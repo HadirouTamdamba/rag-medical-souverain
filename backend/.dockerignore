@@ -1,0 +1,25 @@
+# The wheels directory (~500 MB) is only used by the builder stage, which mounts
+# it explicitly. Excluding it here keeps it out of the build context AND out of
+# the final image via COPY.
+wheels/
+.cache/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.venv/
+venv/
+
+tests/
+requirements-dev.txt
+
+.env
+.env.*
+uploads/
+*.log
+.DS_Store

@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+npm-debug.log*
+.eslintcache
+.env
+.env.*
+.git/
+.DS_Store
+README.md
+AGENTS.md
+CLAUDE.md

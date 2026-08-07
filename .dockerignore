@@ -1,0 +1,11 @@
+.git/
+.github/
+backend/wheels/
+backend/.cache/
+frontend/node_modules/
+frontend/.next/
+**/__pycache__/
+.env
+.env.*
+*.log
+.DS_Store
