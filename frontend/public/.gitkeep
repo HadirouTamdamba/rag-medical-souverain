@@ -1,0 +1,2 @@
+# Location for static assets served from the root (logo, robots.txt...).
+# Kept even when empty: the Dockerfile copies this directory.
