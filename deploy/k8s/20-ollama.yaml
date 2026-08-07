@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: medibot
+spec:
+  selector:
+    app: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: 11434
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+  namespace: medibot
+spec:
+  serviceName: ollama
+  # This is where the real RAG bottleneck lives: generation. Raising this count
+  # (with one GPU per pod) is by far the most effective scaling lever — well
+  # before adding backend replicas.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      # The model weighs several gigabytes: downloading it before the server is
+      # marked ready avoids a timeout on the first real question.
+      initContainers:
+        - name: pull-model
+          image: ollama/ollama:0.5.7
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              ollama serve &
+              PID=$!
+              until ollama list >/dev/null 2>&1; do sleep 2; done
+              ollama pull "$OLLAMA_MODEL"
+              kill $PID
+          env:
+            - name: OLLAMA_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: medibot-config
+                  key: OLLAMA_MODEL
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+      containers:
+        - name: ollama
+          image: ollama/ollama:0.5.7
+          ports:
+            - containerPort: 11434
+          env:
+            - name: OLLAMA_KEEP_ALIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: medibot-config
+                  key: OLLAMA_KEEP_ALIVE
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: "2"
+              memory: 8Gi
+            limits:
+              memory: 16Gi
+              # Uncomment on a GPU node: latency drops from a minute to a few
+              # seconds, which is the only way to make real-time use viable.
+              # nvidia.com/gpu: 1
+          securityContext:
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+  volumeClaimTemplates:
+    - metadata:
+        name: models
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
