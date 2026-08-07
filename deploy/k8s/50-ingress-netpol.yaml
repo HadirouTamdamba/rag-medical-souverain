@@ -1,0 +1,106 @@
+# Only the frontend is exposed. The API is never published directly: the
+# browser goes through the Next server-side relay, which carries the API key.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: medibot
+  namespace: medibot
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+    # A CPU-bound generation can exceed a minute.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    # Essential for SSE streaming: without it nginx buffers the response and the
+    # user waits for the whole answer instead of watching it appear.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    # Global quota, consistent across all replicas (the application limiter is
+    # pod-local, see README).
+    nginx.ingress.kubernetes.io/limit-rpm: "60"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["medibot.hospital.example"]
+      secretName: medibot-tls
+  rules:
+    - host: medibot.hospital.example
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000
+---
+# Deny all ingress traffic into the namespace by default.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: medibot
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-from-ingress
+  namespace: medibot
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-from-frontend-and-monitoring
+  namespace: medibot
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+      ports:
+        - port: 8000
+    # Prometheus scraping of /metrics.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 8000
+---
+# Data (vectors, model) is reachable only from the backend.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: data-from-backend-only
+  namespace: medibot
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [qdrant, ollama]
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: backend
