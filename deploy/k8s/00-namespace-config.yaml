@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: medibot
+  labels:
+    app.kubernetes.io/part-of: medibot
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: medibot-config
+  namespace: medibot
+data:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  LOG_JSON: "true"
+  # Behind an Ingress: uvicorn and the rate limiter must read X-Forwarded-For,
+  # otherwise every request appears to come from the same IP.
+  TRUST_PROXY_HEADERS: "true"
+  # Replace with the organisation's real domain.
+  ALLOWED_ORIGINS: "https://medibot.hospital.example"
+
+  QDRANT_HOST: "qdrant"
+  QDRANT_PORT: "6333"
+  QDRANT_COLLECTION: "medical_docs"
+
+  OLLAMA_HOST: "http://ollama:11434"
+  OLLAMA_MODEL: "mistral"
+  OLLAMA_TIMEOUT_S: "120"
+  OLLAMA_KEEP_ALIVE: "60m"
+  LLM_MAX_CONCURRENCY: "2"
+  LLM_NUM_CTX: "4096"
+  LLM_MAX_TOKENS: "1024"
+  LLM_TEMPERATURE: "0.0"
+
+  EMBEDDING_MODEL: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+  EMBEDDING_THREADS: "2"
+  RAG_TOP_K: "5"
+  MIN_RELEVANCE_SCORE: "0.35"
+  MAX_CONTEXT_CHARS: "12000"
+  MAX_HISTORY_MESSAGES: "6"
+  MAX_UPLOAD_MB: "25"
+
+  RATE_LIMIT_ENABLED: "true"
+  # Pod-local limiter: with N replicas the effective limit is N times this
+  # value. For a strict quota, enforce it at the Ingress (see README).
+  RATE_LIMIT_REQUESTS: "30"
+  RATE_LIMIT_WINDOW_S: "60"
+  METRICS_ENABLED: "true"
+---
+# Template only. Never commit the real value: create it with
+#   kubectl -n medibot create secret generic medibot-secrets \
+#     --from-literal=API_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')"
+# or supply it through an External Secrets Operator / Vault.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: medibot-secrets
+  namespace: medibot
+type: Opaque
+stringData:
+  API_KEY: "REPLACE-WITH-A-KEY-OF-AT-LEAST-32-CHARACTERS"
