@@ -28,14 +28,13 @@ Models:
 Demonstration documents
 --------------------------------------------------------------------------------
 
-The PDFs in demo_docs/ are synthetic and generated for demonstration purposes
-(see generate_pdfs.py). They contain no real health data and have no clinical
-value.
+The demonstration corpus consists exclusively of official publications from the
+French health authorities (HAS) and the French Society of Emergency Medicine
+(SFMU). These documents are NOT redistributed in this repository: they remain
+the property of their publishers and are downloaded from the source at setup
+time. See demo_docs_officiels/SOURCES.md and scripts/fetch_demo_docs.sh.
 
-The official recommendations used in the demo (HAS, SFMU) are NOT redistributed
-in this repository. They remain the property of their publishers and can be
-downloaded from the source: see demo_docs_officiels/SOURCES.md and
-scripts/fetch_demo_docs.sh.
+No patient data, and no document of unverified provenance, is included.
 
 --------------------------------------------------------------------------------
 Disclaimer

@@ -23,7 +23,7 @@ services:
       LOG_LEVEL: DEBUG
     volumes:
       - ./backend:/app
-      - ./demo_docs:/demo_docs:ro
+      - ./demo_docs_officiels:/demo_docs:ro
     # `--reload` watches /app: the bind mount above makes edits take effect
     # without rebuilding the image.
     entrypoint:

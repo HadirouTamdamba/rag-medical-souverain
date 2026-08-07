@@ -32,9 +32,10 @@ Browser ──HTTPS──▶ Ingress/TLS ──▶ Next.js frontend
 
 ```bash
 cp .env.example .env
-make up          # build and start; the Ollama model is pulled automatically
-make ready       # wait until Qdrant, Ollama and the model are available
-make ingest      # index demo_docs/
+./scripts/fetch_demo_docs.sh   # fetch the official corpus from the publishers
+make up                        # build and start; the Ollama model is pulled automatically
+make ready                     # wait until Qdrant, Ollama and the model are available
+make ingest                    # index the corpus (~50 s for 992 chunks)
 ```
 
 - UI: http://localhost:3000
@@ -70,15 +71,16 @@ LLM_NO_CONTEXT_ANSWER=I do not have that information in my knowledge base.
 
 ### Demo corpus
 
-`demo_docs/` holds **synthetic** PDFs generated for the demo ([generate_pdfs.py](generate_pdfs.py)): no real health data, no clinical value. This is what `make ingest` indexes. Their clinical text is in French, matching the default answer language.
-
-Official French recommendations (HAS, SFMU) are not redistributed here. To fetch them from the publishers:
+The corpus is made **exclusively of official publications** (HAS, SFMU) — nothing is authored or synthesised for this repository, and no real patient data is involved. Those PDFs are not redistributed here: they belong to their publishers and are fetched from the source.
 
 ```bash
-./scripts/fetch_demo_docs.sh
+./scripts/fetch_demo_docs.sh   # 7 documents, ~12 MB
+make ingest                    # 992 chunks
 ```
 
 Provenance and retrieval dates are in [demo_docs_officiels/SOURCES.md](demo_docs_officiels/SOURCES.md). The scripted client demo lives in [DEMO.md](DEMO.md); `./demo_start.sh` chains every step.
+
+`MIN_RELEVANCE_SCORE` is **corpus-specific** and must be re-measured whenever the knowledge base changes: adding or removing a document shifts every similarity score. DEMO.md § 3 gives a two-minute calibration procedure, and documents why a similarity threshold alone is not a reliable refusal mechanism.
 
 ## API
 
@@ -159,7 +161,7 @@ Every setting is documented in [.env.example](.env.example). The ones that matte
 | `ENVIRONMENT` | In `production`, startup **fails** if `API_KEY` is shorter than 16 characters or if `ALLOWED_ORIGINS` is `*`; `/docs` is disabled |
 | `API_KEY` | API authentication. Read server-side only by the frontend |
 | `LLM_NUM_CTX` | Must cover prompt + context + history + answer. Below that, Ollama silently truncates the **beginning** of the prompt and loses the instructions |
-| `MIN_RELEVANCE_SCORE` | Relevance threshold applied inside Qdrant. Too low: noise enters the context. Too high: the RAG wrongly answers "I don't know" |
+| `MIN_RELEVANCE_SCORE` | Relevance threshold applied inside Qdrant. Too low: noise enters the context. Too high: the RAG wrongly answers "I don't know". Corpus-specific — recalibrate after any change to the knowledge base (DEMO.md § 3) |
 | `LLM_RESPONSE_LANGUAGE` | Language the assistant answers in; keep `LLM_NO_CONTEXT_ANSWER` in sync |
 | `EMBEDDING_MODEL` | Changing the model requires a **new collection**: the backend refuses to start against a collection of incompatible dimension |
 

@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     # --- Ingestion ----------------------------------------------------------
     upload_dir: Path = Path("/tmp/medical-rag-uploads")
     max_upload_mb: int = 25
+    # Mounted from demo_docs_officiels/: the corpus is made exclusively of
+    # official publications, fetched with scripts/fetch_demo_docs.sh.
     demo_docs_dir: Path = Path("/demo_docs")
 
     # --- Exposure -----------------------------------------------------------

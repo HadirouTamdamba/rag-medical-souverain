@@ -142,7 +142,7 @@ services:
       ollama-init:
         condition: service_completed_successfully
     volumes:
-      - ./demo_docs:/demo_docs:ro
+      - ./demo_docs_officiels:/demo_docs:ro
     networks:
       - data
       - web

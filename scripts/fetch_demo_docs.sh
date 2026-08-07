@@ -47,4 +47,4 @@ fetch "SFMU_RFE_Triage_Urgences_2013.pdf" \
   "https://www.sfmu.org/upload/referentielsSFMU/rfe_triage2013.pdf"
 
 echo
-echo "Done. To index: make ingest (synthetic corpus) or see DEMO_PROMPTS.md."
+echo "Done. To index: make ingest — then see DEMO.md for the demo script."
