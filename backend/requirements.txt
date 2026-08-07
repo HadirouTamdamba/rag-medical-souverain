@@ -1,0 +1,17 @@
+# Pinned versions: a hospital build must be byte-for-byte reproducible, and
+# these match the pre-downloaded wheels in backend/wheels/
+# (see README, "Unstable network during the build").
+fastapi==0.139.0
+uvicorn[standard]==0.51.0
+pydantic==2.13.4
+pydantic-settings==2.14.2
+httpx==0.28.1
+qdrant-client==1.12.1
+# Pinned explicitly so the Dockerfile can install it from PyTorch's CPU index.
+# The default PyPI wheel declares the whole CUDA stack (nvidia-*, triton) and
+# added 3.6 GB of dead weight to a CPU-only image.
+torch==2.13.0
+sentence-transformers==3.4.1
+langchain-text-splitters==0.3.11
+pypdf==5.9.0
+python-multipart==0.0.32
