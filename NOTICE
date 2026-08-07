@@ -1,0 +1,46 @@
+Sovereign Medical RAG — self-hosted RAG assistant for healthcare organisations
+Copyright 2026 Hadirou Tamdamba
+
+This product includes software developed by Hadirou Tamdamba.
+Distributed under the Apache License 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+This project builds on third-party software, distributed under its own licences
+and not redistributed here (installed at build time):
+
+  - FastAPI, Starlette, Uvicorn, Pydantic .............. MIT / BSD-3-Clause
+  - Qdrant and qdrant-client .......................... Apache 2.0
+  - Ollama ............................................ MIT
+  - sentence-transformers, transformers, PyTorch ...... Apache 2.0 / BSD-3-Clause
+  - langchain-text-splitters .......................... MIT
+  - pypdf ............................................. BSD-3-Clause
+  - Next.js, React .................................... MIT
+
+Models:
+
+  - sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 ... Apache 2.0
+  - Mistral 7B (via Ollama) ...................................... Apache 2.0
+
+--------------------------------------------------------------------------------
+Demonstration documents
+--------------------------------------------------------------------------------
+
+The PDFs in demo_docs/ are synthetic and generated for demonstration purposes
+(see generate_pdfs.py). They contain no real health data and have no clinical
+value.
+
+The official recommendations used in the demo (HAS, SFMU) are NOT redistributed
+in this repository. They remain the property of their publishers and can be
+downloaded from the source: see demo_docs_officiels/SOURCES.md and
+scripts/fetch_demo_docs.sh.
+
+--------------------------------------------------------------------------------
+Disclaimer
+--------------------------------------------------------------------------------
+
+This software is a document search aid. It is not a medical device, does not
+replace clinical judgement, and must remain supervised by healthcare
+professionals.
