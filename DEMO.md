@@ -144,7 +144,7 @@ Measured failures on this corpus. Knowing them avoids unpleasant surprises — a
 
 ## 5. If a client asks "what about production?"
 
-- **Hardware**: this runs on an M1 Pro laptop; on a GPU server (L40S/A100) answers drop to 1-3 s and larger models (Mistral Small, Qwen 14-72B) become viable.
+- **Hardware**: this runs on an M1 Pro laptop; on a GPU server (L40S/A100) I expect answers in a few seconds rather than tens of seconds, and larger models (Mistral Small, Qwen 14-72B) become viable. That gain is an expectation, not something I have measured.
 - **Sovereignty**: LLM, embeddings and vector store are 100% local; Mistral is a French vendor.
 - **Quality roadmap**, in the order the measurements justify: a cross-encoder reranker (fixes failures 1 and 2 above), table-aware PDF extraction, continuous automated evaluation on a domain-validated question set, SSO, audit logs, multi-tenancy.
 - **A war story worth telling**: the initial hallucinations came from a silent prompt truncation (Ollama's default context window), caught by metrics and systematic testing. Then, on switching to the full official corpus, two demo questions regressed — caught the same way. That is the MLOps job: instrument, measure, correct.

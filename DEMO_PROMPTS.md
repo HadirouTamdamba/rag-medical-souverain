@@ -105,4 +105,4 @@ These are reproducible on the current corpus. They are not hypothetical risks; e
 
 ## Transparency note (for your presentation)
 
-These answers come from a prototype running **Mistral 7B on a laptop (M1 Pro, Metal GPU)** over 992 chunks of official publications. In production on a GPU server with a larger model (Mistral Small, Qwen 14-72B) you gain 1-3 s latency and better fidelity on tables. The failures listed above are the honest measurement of what a 7B model with a plain similarity threshold cannot do — and they define the roadmap, in order: reranker first, then table-aware extraction, then continuous automated evaluation.
+These answers come from a prototype running **Mistral 7B on a laptop (M1 Pro, Metal GPU)** over 992 chunks of official publications. In production on a GPU server with a larger model (Mistral Small, Qwen 14-72B) I would expect much lower latency (not measured here) and better fidelity on tables. The failures listed above are the honest measurement of what a 7B model with a plain similarity threshold cannot do — and they define the roadmap, in order: reranker first, then table-aware extraction, then continuous automated evaluation.
